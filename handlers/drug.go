@@ -1,50 +1,91 @@
 package handlers
 
 import (
-	"net/http"
 	"encoding/json"
+	"net/http"
+	"strconv"
 	"vaccine-api/models"
+	"vaccine-api/repositories"
 )
 
-func CreateDrugHandler(w http.ResponseWriter, r *http.Request) {
-    var drug models.Drug
-    err := json.NewDecoder(r.Body).Decode(&drug)
-    if err != nil {
-        http.Error(w, err.Error(), http.StatusBadRequest)
-        return
-    }
+// Handler para POST /drugs
+func MakeCreateDrugHandler(drugRepo *repositories.DrugRepository) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var drug models.Drug
+		err := json.NewDecoder(r.Body).Decode(&drug)
+		if err != nil {
+			http.Error(w, "Error decoding request body", http.StatusBadRequest)
+			return
+		}
 
-    // Insertar la droga en la base de datos
+		err = drugRepo.CreateDrug(drug)
+		if err != nil {
+			http.Error(w, "Error creating drug", http.StatusInternalServerError)
+			return
+		}
 
-    w.WriteHeader(http.StatusCreated)
-    json.NewEncoder(w).Encode(drug)
+		w.WriteHeader(http.StatusCreated)
+	}
 }
 
-func GetAllDrugsHandler(w http.ResponseWriter, r *http.Request) {
-    // Obtener todas las drogas de la base de datos
+// Handler para PUT /drugs/:id
+func MakeUpdateDrugHandler(drugRepo *repositories.DrugRepository) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, err := strconv.Atoi(r.URL.Query().Get(":id"))
+		if err != nil {
+			http.Error(w, "Invalid drug ID", http.StatusBadRequest)
+			return
+		}
 
-    json.NewEncoder(w).Encode(drugs)
+		var drug models.Drug
+		err = json.NewDecoder(r.Body).Decode(&drug)
+		if err != nil {
+			http.Error(w, "Error decoding request body", http.StatusBadRequest)
+			return
+		}
+
+		err = drugRepo.UpdateDrug(id, drug)
+		if err != nil {
+			http.Error(w, "Error updating drug", http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+	}
 }
 
-func UpdateDrugHandler(w http.ResponseWriter, r *http.Request) {
-    // Obtener el ID del URL
+// Handler para GET /drugs
+func MakeGetAllDrugsHandler(drugRepo *repositories.DrugRepository) http.HandlerFunc {
+	return func(w http.ResponseWriter, _ *http.Request) {
+		drugs, err := drugRepo.GetAllDrugs()
+		if err != nil {
+			http.Error(w, "Error retrieving drugs", http.StatusInternalServerError)
+			return
+		}
 
-    var drug models.Drug
-    err := json.NewDecoder(r.Body).Decode(&drug)
-    if err != nil {
-        http.Error(w, err.Error(), http.StatusBadRequest)
-        return
-    }
-
-    // Actualizar la droga en la base de datos
-
-    json.NewEncoder(w).Encode(drug)
+		err = json.NewEncoder(w).Encode(drugs)
+		if err != nil {
+			http.Error(w, "Error encoding response", http.StatusInternalServerError)
+			return
+		}
+	}
 }
 
-func DeleteDrugHandler(w http.ResponseWriter, r *http.Request) {
-    // Obtener el ID del URL
+// Handler para DELETE /drugs/:id
+func MakeDeleteDrugHandler(drugRepo *repositories.DrugRepository) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, err := strconv.Atoi(r.URL.Query().Get(":id"))
+		if err != nil {
+			http.Error(w, "Invalid drug ID", http.StatusBadRequest)
+			return
+		}
 
-    // Eliminar la droga de la base de datos
+		err = drugRepo.DeleteDrug(id)
+		if err != nil {
+			http.Error(w, "Error deleting drug", http.StatusInternalServerError)
+			return
+		}
 
-    w.WriteHeader(http.StatusOK)
+		w.WriteHeader(http.StatusOK)
+	}
 }

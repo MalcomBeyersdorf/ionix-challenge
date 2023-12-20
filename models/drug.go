@@ -5,10 +5,10 @@ import (
 )
 
 type Drug struct {
-	ID          int       `json:"id"`
+	AvailableAt time.Time `json:"available_at"`
 	Name        string    `json:"name"`
-	Approved    bool      `json:"approved"`
+	ID          int       `json:"id"`
 	MinDose     int       `json:"min_dose"`
 	MaxDose     int       `json:"max_dose"`
-	AvailableAt time.Time `json:"available_at"`
+	Approved    bool      `json:"approved"`
 }
