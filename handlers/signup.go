@@ -1,45 +1,40 @@
 package handlers
 
 import (
-	"net/http"
 	"encoding/json"
+	"net/http"
 	"vaccine-api/models"
-	"golang.org/x/crypto/bcrypt"
-	"vaccine-api/database"
+	repository "vaccine-api/repositories"
 )
 
-func SignupHandler(w http.ResponseWriter, r *http.Request) {
-	var user models.User
-	err := json.NewDecoder(r.Body).Decode(&user)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+type SignupRequest struct {
+	Name     string `json:"name"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+func MakeSignupHandler(userRepo *repository.UserRepository) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req SignupRequest
+		err := json.NewDecoder(r.Body).Decode(&req)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		user := models.User{
+			Name:     req.Name,
+			Email:    req.Email,
+			Password: req.Password,
+		}
+
+		err = userRepo.CreateUser(user)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(map[string]string{"message": "User created successfully"})
 	}
-
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), 8)
-	if err != nil {
-		http.Error(w, "Error al hashear la contraseña", http.StatusInternalServerError)
-		return
-	}
-	user.Password = string(hashedPassword)
-
-	db := database.Connect()
-	defer db.Close()
-
-	sqlStatement := `
-	INSERT INTO users (name, email, password)
-	VALUES ($1, $2, $3)
-	RETURNING id`
-
-	var id int
-	err = db.QueryRow(sqlStatement, user.Name, user.Email, user.Password).Scan(&id)
-	if err != nil {
-		http.Error(w, "Error al insertar usuario en la base de datos", http.StatusInternalServerError)
-		return
-	}
-
-	user.ID = id
-
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(user) 
 }

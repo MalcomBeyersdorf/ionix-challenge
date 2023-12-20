@@ -1,38 +1,43 @@
 package handlers
 
 import (
-    "net/http"
 	"encoding/json"
-    "golang.org/x/crypto/bcrypt"
-    "github.com/dgrijalva/jwt-go"
-    "vaccine-api/models"
-
+	"net/http"
+	repository "vaccine-api/repositories"
+	"vaccine-api/utils"
 )
 
-func LoginHandler(w http.ResponseWriter, r *http.Request) {
-    var creds models.User
-    err := json.NewDecoder(r.Body).Decode(&creds)
-    if err != nil {
-        http.Error(w, err.Error(), http.StatusBadRequest)
-        return
-    }
+type LoginRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
 
-    // user, err := GetUserByEmail(creds.Email)
+func MakeLoginHandler(userRepo *repository.UserRepository) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req LoginRequest
+		err := json.NewDecoder(r.Body).Decode(&req)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 
-    if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(creds.Password)); err != nil {
-        http.Error(w, "Credenciales inválidas", http.StatusUnauthorized)
-        return
-    }
+		user, err := userRepo.GetUserByEmail(req.Email)
+		if err != nil {
+			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+			return
+		}
 
-    token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-        "user_id": user.ID,
-    })
+		if !utils.CheckPasswordHash(req.Password, user.Password) {
+			http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+			return
+		}
 
-    tokenString, err := token.SignedString([]byte("clave"))
-    if err != nil {
-        http.Error(w, "Error al generar el token", http.StatusInternalServerError)
-        return
-    }
+		token, err := utils.GenerateJWT(user.ID)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 
-    json.NewEncoder(w).Encode(map[string]string{"token": tokenString})
+		json.NewEncoder(w).Encode(map[string]string{"token": token})
+	}
 }

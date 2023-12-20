@@ -1,27 +1,45 @@
 package middlewares
 
 import (
-    "github.com/dgrijalva/jwt-go"
+	"fmt"
+	"net/http"
+	"os"
+	"strings"
+
+	"github.com/dgrijalva/jwt-go"
 )
 
-func ValidateJWT(next http.HandlerFunc) http.HandlerFunc {
-    return func(w http.ResponseWriter, r *http.Request) {
-        tokenString := r.Header.Get("Authorization")
+func JWTAuthenticationMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tokenHeader := r.Header.Get("Authorization")
+		if tokenHeader == "" {
+			http.Error(w, "Missing auth token", http.StatusForbidden)
+			return
+		}
+		splitted := strings.Split(tokenHeader, " ")
+		if len(splitted) != 2 {
+			http.Error(w, "Invalid/Malformed auth token", http.StatusForbidden)
+			return
+		}
+		tokenPart := splitted[1]
+		tk := &Claims{}
+		token, err := jwt.ParseWithClaims(tokenPart, tk, func(token *jwt.Token) (interface{}, error) {
+			return []byte(os.Getenv("JWT_SECRET_KEY")), nil
+		})
+		if err != nil {
+			http.Error(w, "Malformed authentication token", http.StatusForbidden)
+			return
+		}
+		if !token.Valid {
+			http.Error(w, "Token is not valid", http.StatusForbidden)
+			return
+		}
+		fmt.Sprintf("User %d", tk.UserID)
+		next.ServeHTTP(w, r)
+	})
+}
 
-        token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-            if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-                return nil, fmt.Errorf("Método de firma inesperado: %v", token.Header["alg"])
-            }
-
-            return []byte("clave"), nil
-        })
-
-        if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-            r.Context = context.WithValue(r.Context, "userID", claims["user_id"])
-            next(w, r)
-        } else {
-            http.Error(w, err.Error(), http.StatusUnauthorized)
-            return
-        }
-    }
+type Claims struct {
+	jwt.StandardClaims
+	UserID int `json:"user_id"`
 }
