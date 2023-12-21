@@ -63,6 +63,12 @@ Si tienes tiempo puedes incluir algunas de las siguientes funcionalidades:
 build de la aplicación con el Dockerfile y publicar la imagen en algún registry como “Github
 Packages”, “Gitlab Container Registry” o “Dockerhub”.
 
-Comandos:
+## Comandos:
 
-go test ./...
+### Correr tests
+
+` go test ./...`
+
+### Correr proyecto
+
+`docker-compose up`
